@@ -37,29 +37,6 @@ library(doParallel)
 
 set.seed(12345)
 
-####################################################
-## Data manipulation and pre-processing
-## #1 deal with missing/NA data
-## #2 remove constant rows
-## #3 optimize training set and testing set
-####################################################
-
-
-########################################################################################################
-## data of RNAseq for each tumor type from TCGA
-## count <- read.table("D:/WorkRecord/Companies/Qiagen_Sales/201904/SVM_RFE_Prj/svm_rfe_prj/THCA_RNA_Set.RnaSeq_Transcript.Genes.txt",
-##                    header = TRUE,
-##                    row.names = 1,
-##                    sep = "\t"
-##                    )
-########################################################################################################
-## design <- read.table("D:/WorkRecord/Companies/Qiagen_Sales/201904/SVM_RFE_Prj/svm_rfe_prj/THCA_RNA_Set.RnaSeq_Transcript.Genes_Design.txt",
-##                     header = TRUE,
-##                     row.names = 1,
-##                     sep = "\t"
-##                     )
-########################################################################################################
-
 
 ########################################################################################
 ## 
@@ -78,47 +55,6 @@ set.seed(12345)
 
 
 
-########################################################
-## Section 0: save ROC plot
-## 
-## function plot ROC cure and save as jpg file
-## 
-## pass an roc_object together with routine and file name
-## Plot ROC curve, add AUC, 95% CI, save to target folder
-## Also, pass the ML algorithm to the legend;
-
-PlotROCSaveJPG <- function(roc.obj, path, file.name, ml.algo){
-  
-  jpeg(paste0(path, file.name, "_ROC_with_AUC.jpg"), 
-       width = 8, height = 6, units = "in", res= 400)
-  
-  ## We can calculate the area under the curve...
-  
-  plot( 
-    roc.obj,
-    legacy.axes=TRUE, percent=TRUE, 
-    main= ml.algo,
-    xlab="False Positive Percentage", 
-    ylab="True Postive Percentage", 
-    col="darkblue", lwd=4, 
-    print.auc=TRUE
-  )  # end plotting
-  
-  # the 95% CI could be printed directly by print.auc=T; 
-  #ci.95 <- paste0("95% CI = ", round(ci.auc(rocobj)[1], digits = 2), " - ", round(ci.auc(rocobj)[3], digits = 2) ) 
-  
-  legend("bottomright", 
-         legend=c( paste("model:", ml.algo) ), 
-         col=c("darkblue", "darkblue"), 
-         lwd=4)
-  
-  dev.off()
-  
-} ## End PlotROCSaveJPG() function  
-#####################################################################################################################
-
-
-
 ########################################################################################
 ## Section I 
 ## read in the count data and the clinical information table; 
@@ -134,10 +70,13 @@ PlotROCSaveJPG <- function(roc.obj, path, file.name, ml.algo){
 
 setwd("C:/Users/Jeff/OneDrive - QIAGEN GmbH/SVM_RFE_Prj/Jeff_Shuai/RCode/")
 setwd("C:/Users/Jeff/OneDrive - QIAGEN GmbH/SVM_RFE_Prj/Jeff_Shuai/0709_input_files/")
+setwd("C:/Users/DuG/OneDrive - QIAGEN GmbH/SVM_RFE_Prj/Jeff_Shuai/0822_input_files/")
 
 count <- read.table("Count_Transposed.txt", row.names = 1, header = T, sep = "\t")
 
 count <- read.table("Table.Transposed.Data.txt", row.names = 1, header = T, sep = "\t")
+
+validation <- read.table("Expression_count_T.txt", row.names = 1, header = T, sep = "\t")
 
 design <- read.table("Merged_LUAD_Normal_Design.txt", row.names = 1, header = T, sep = "\t")
 top.genes <- readLines("DESeq2_compare2Normal_topGeneList.txt")
@@ -233,6 +172,8 @@ head(my_data)
 
 my_data$class <- design$SampleType
 
+
+
 summary(my_data$class)
 
 # > summary(my_data$class)
@@ -282,10 +223,15 @@ trainRowNumbers <- createDataPartition(my_data$class, p=0.70, list=FALSE)
 ## small training set
 ## trainRowNumbers <- createDataPartition(my_data$class, p=0.40, list=FALSE)
 
+summary(validation$class)
+
+# validation$class <- as.factor(validation$class)
 
 ###################################################################
 ## Section II, Step 2: Create the training  dataset
 trainData <- my_data[trainRowNumbers,]
+
+validData <- validation
 
 for(i in 1:dim(trainData)[2]){
   print( class(trainData[,i]) )
@@ -321,6 +267,10 @@ dim(x_test)
 x$class
 # x$class should be NULL
 
+v.len <- dim(validData)[2]
+v.len
+x.valid = validData[ , 1:v.len-1]
+y.valid = validData$class
 
 ###############################################################################################
 ## Section III, data, mamipulation, normalization and scalling
@@ -345,11 +295,7 @@ x$class
 ## for top 500/1000 significant genes, this step could be ignored; 
 ## x <- x[,apply(x, 2, var, na.rm=TRUE) > 0.0001]
 
-for(i in 1:dim(x)[2]){
-  print(class(x[, i]))
-}
 
-dim(x)
 
 
 ########################################################################
@@ -376,11 +322,18 @@ testData$class <- y_test
 # check head of the test data
 head(testData)
 
+dim(x.valid)
+
+validData_range_model <- preProcess( x.valid, methd = c("center", "scale") )
+validData <- predict( validData_range_model, newdata = x.valid)
+validData$class <- y.valid
+
 ## 
+
 ## check dim for both train and test data
 dim( trainData )
 dim( testData )
-
+dim( validData )
 
 ########################################################################
 ## Section IV briefly check the feature weight and density
@@ -1084,6 +1037,20 @@ models <- caretList(class ~ .,
 
 save(models, file = "0712_10Genes_7Models.RData")
 save(models, file = "0712_`0Genes_7Models_smallTrainingSet.RData")
+
+
+load(file = "0712_10Genes_7Models.RData")
+
+
+############################################################
+## Step #10.2: Predict on testData and Compute the confusion matrix
+## Random Forest
+predict_rf.v <- predict(models$rf, validData)
+conf_rf.v <- confusionMatrix(reference = validData$class, data = predict_rf.v, mode='everything', positive='tumor') 
+
+conf_rf.v
+
+head(validData)
 
 ################################################################################
 ## check resample() results
