@@ -65,6 +65,7 @@ design <- read.table("Design_0822_LUAD_Normal.txt", row.names = 1, header = T, s
 
 top.genes <- readLines("miRNA_GeneID_top314.txt")
 top.genes <- readLines("miRNA_GeneID_top106.txt")
+top.genes <- readLines("top20_miRNAs_by_varImport_ML_models.txt")
 
 count.v <- read.table("Count_0822_miRNA62samples.txt", row.names = 1, header = T, sep = "\t")
 design.v <- read.table("Design_0822_miRNA62samples.txt", row.names = 1, header = T, sep = "\t")
@@ -878,7 +879,7 @@ models <- caretList(class ~ .,
 ) 
 
 
-save(models, file = "0823_106Genes_5Models.RData")
+save(models, file = "0823_20Genes_5Models.RData")
 
 ################################################################################
 ## check resample() results
@@ -1148,6 +1149,8 @@ print(stack.glm.opt)
 # Predict on testData 
 stack_predicteds <- predict(stack.glm, newdata=testData) 
 head(stack_predicteds) 
+
+confusionMatrix(reference = testData$class, data = stack_predicteds, mode='everything', positive='tumor') 
 
 confusionMatrix(reference = testData$class, data = stack_predicteds, mode='everything', positive='tumor') 
 
