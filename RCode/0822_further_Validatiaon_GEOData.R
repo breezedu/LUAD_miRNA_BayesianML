@@ -73,14 +73,12 @@ setwd("C:/Users/Jeff/OneDrive - QIAGEN GmbH/SVM_RFE_Prj/Jeff_Shuai/0709_input_fi
 setwd("C:/Users/DuG/OneDrive - QIAGEN GmbH/SVM_RFE_Prj/Jeff_Shuai/0822_input_files/")
 
 count <- read.table("Count_Transposed.txt", row.names = 1, header = T, sep = "\t")
-
 count <- read.table("Table.Transposed.Data.txt", row.names = 1, header = T, sep = "\t")
 
 validation <- read.table("Expression_count_T.txt", row.names = 1, header = T, sep = "\t")
 
 design <- read.table("Merged_LUAD_Normal_Design.txt", row.names = 1, header = T, sep = "\t")
-top.genes <- readLines("DESeq2_compare2Normal_topGeneList.txt")
-top.genes <- readLines("top20_miRNAs.txt")
+
 top.genes <- readLines("top10_ML_Ranked_miRNAs.txt")
 
 class(count)
@@ -94,21 +92,7 @@ length(top.genes)
 head(design)
 
 count[1:5, 1:5]
-
-
-## on Lenovo Laptop
-#count <- read.table("D:/miRNA_Prj/0414_cleanedInput/count.txt", row.names = 1, header = T, sep = "\t")
-#design <- read.table("D:/miRNA_Prj/0414_cleanedInput/CountData_Design.txt", row.names = 1, header = T, sep = "\t")
-#
-#top.genes <- readLines("D:/WorkRecord/Companies/Qiagen_Sales/201904/test_miRNA/significant_genes_DESeq2.txt")
-#top.genes <- readLines("D:/miRNA_Prj/0414_cleanedInput/top_list.txt")
-#
-#clinical.data <- read.table("D:/miRNA_Prj/0414_cleanedInput/Clinical.txt", row.names = 1, header = T, sep = "\t")
-#
-###############
-## in the clinical data, X704 is an extra item; 
-
-# clinical.data <- as.data.frame( t(clinical.data) )
+validation[1:5, 1:5]
 
 
 top.genes <- make.names(top.genes, unique = T)
@@ -198,12 +182,8 @@ my_data[1:5, 1:5]
 ## drop the empty Metastatic level
 my_data$class <- factor(my_data$class)
 summary(my_data$class)
+summary(validation$class)
 
-for(i in 1:dim(my_data)[2]-1){
-  print( class(my_data[,i]) )
-  if( is.factor( class(my_data[ , i])))
-    my_data[ , i] <- as.numeric((my_data[ , i]))
-}
 
 ####################################################################################
 ## Section II 
@@ -233,19 +213,12 @@ trainData <- my_data[trainRowNumbers,]
 
 validData <- validation
 
-for(i in 1:dim(trainData)[2]){
-  print( class(trainData[,i]) )
-}
 
 
 
 ###################################################################
 ## Section II, Step 3: Create the test dataset
 testData <- my_data[-trainRowNumbers,]
-
-for(i in 1:dim(testData)[2]){
-  print( class(testData[,i]) )
-}
 
 
 dim(trainData)
@@ -271,6 +244,7 @@ v.len <- dim(validData)[2]
 v.len
 x.valid = validData[ , 1:v.len-1]
 y.valid = validData$class
+dim(x.valid)
 
 ###############################################################################################
 ## Section III, data, mamipulation, normalization and scalling
@@ -325,7 +299,8 @@ head(testData)
 dim(x.valid)
 
 validData_range_model <- preProcess( x.valid, methd = c("center", "scale") )
-validData <- predict( validData_range_model, newdata = x.valid)
+#validData <- predict( validData_range_model, newdata = x.valid)
+validData <- predict( trainData_range_model, newdata = x.valid)
 validData$class <- y.valid
 
 ## 
@@ -348,12 +323,23 @@ dim(trainData)
 for( i in 1:dim(trainData)[2]){
   print( class(trainData[ , i]))
   print( class(testData[ , i]))
+  print( class(validData[ , i]))
   
 }
 
 featurePlot(x = trainData[, 1:dim(trainData)[2]-1], 
             y = trainData$class, 
             plot = "box",
+            main = "trainData",
+            strip=strip.custom(par.strip.text=list(cex=.7)),
+            scales = list(x = list(relation="free"), 
+                          y = list(relation="free"))
+)
+
+featurePlot(x = validData[, 1:dim(trainData)[2]-1], 
+            y = validData$class, 
+            plot = "box",
+            main = "validataion data",
             strip=strip.custom(par.strip.text=list(cex=.7)),
             scales = list(x = list(relation="free"), 
                           y = list(relation="free"))
@@ -591,6 +577,14 @@ confusionMatrix(reference = testData$class, data = predicted2, mode='everything'
 predicted2 <- predict(model_svmLinear, trainData)
 
 confusionMatrix(reference = trainData$class, data = predicted2, mode='everything', positive='tumor')
+
+
+predicted.v <- predict(model_svmLinear, validData)
+
+################################################################
+## print out confusion matrix 
+
+confusionMatrix(reference = validData$class, data = predicted.v, mode='everything', positive='tumor')
 
 dim(testData)
 dim(trainData)
@@ -1050,8 +1044,10 @@ conf_rf.v <- confusionMatrix(reference = validData$class, data = predict_rf.v, m
 
 conf_rf.v
 
-head(validData)
 
+
+head(validData)
+head(trainData)
 ################################################################################
 ## check resample() results
 
@@ -1232,7 +1228,7 @@ legend("bottomright",
 
 #################################
 ## calculate confusion matric for all models
-
+testData <- validData
 
 ############################################################
 ## Step #10.2: Predict on testData and Compute the confusion matrix
@@ -1242,22 +1238,29 @@ conf_rf <- confusionMatrix(reference = testData$class, data = predict_rf, mode='
 
 predict_knn <- predict(models$knn, testData)
 conf_knn <- confusionMatrix(reference = testData$class, data = predict_knn, mode='everything', positive='tumor') 
+conf_knn
 
 predict_mars <- predict(models$earth, testData)
 conf_mars <- confusionMatrix(reference = testData$class, data = predict_mars, mode='everything', positive='tumor') 
+conf_mars
 
 predict_ada <- predict(models$ada, testData)
 conf_ada <- confusionMatrix(reference = testData$class, data = predict_ada, mode='everything', positive='tumor') 
 
+conf_ada 
+
 predict_xgbDART <- predict(models$xgbDART, testData)
 conf_xgbDART <- confusionMatrix(reference = testData$class, data = predict_xgbDART, mode='everything', positive='tumor') 
 
+conf_xgbDART
+
 predict_svmRadial <- predict(models$svmRadial, testData)
 conf_svmRadial <- confusionMatrix(reference = testData$class, data = predict_svmRadial, mode='everything', positive='tumor') 
+conf_svmRadial
 
 predict_svmLinear <- predict(models$svmLinear, testData)
 conf_svmLinear <- confusionMatrix(reference = testData$class, data = predict_svmLinear, mode='everything', positive='tumor') 
-
+conf_svmLinear
 ##################################################
 ### check confusion matric from all 7 models 
 conf_rf
