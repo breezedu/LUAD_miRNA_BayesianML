@@ -879,7 +879,7 @@ models <- caretList(class ~ .,
 ) 
 
 
-save(models, file = "0823_20Genes_5Models.RData")
+save(models, file = "0823_20Genes_5Models_fitControl.RData")
 
 ################################################################################
 ## check resample() results
@@ -1152,7 +1152,15 @@ head(stack_predicteds)
 
 confusionMatrix(reference = testData$class, data = stack_predicteds, mode='everything', positive='tumor') 
 
-confusionMatrix(reference = testData$class, data = stack_predicteds, mode='everything', positive='tumor') 
+
+validData.0 <- validData
+validData.0$class <- ifelse(validData.0$class=="tumor", "normal", "tumor")
+head(validData.0)
+summary(validData.0$class)
+validData.0$class <- as.factor(validData.0$class)
+
+stack_predicteds <- predict(stack.glm, newdata=validData.0) 
+confusionMatrix(reference = validData.0$class, data = stack_predicteds, mode='everything', positive='tumor') 
 
 
 # predict on testData with optimized models
