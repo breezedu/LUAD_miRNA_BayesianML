@@ -805,7 +805,7 @@ algorithmList <- c('rf', 'knn', 'earth','xgbDART', 'svmRadial', 'svmLinear')
 
 ## MARS does not work well, so we replaced it with svmPoly
 
-algorithmList <- c('rf', 'knn', 'svmPoly','xgbDART', 'svmRadial', 'svmLinear')
+algorithmList <- c('rf', 'earth','xgbDART', 'svmPoly','svmRadial', 'svmLinear')
 
 # a quick test for algorithm list 
 # algorithmList <- c('rf', 'knn', 'svmRadial', 'svmLinear', 'earth')
@@ -1344,7 +1344,7 @@ confusionMatrix(reference = applicationData$class, data = predicted_apply, mode=
 
 
 
-### KNN
+### KNN is the worst
 ################################################################################
 ## Plot FOUR ROCs (training, test, valid, application) in one plot
 ## Plot multi ROCs in one plot
